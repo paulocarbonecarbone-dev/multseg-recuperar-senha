@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MultSeg — Recuperar senha</title><style>body{font-family:system-ui,Arial,sans-serif;background:#edf3fa;color:#102e51;margin:0;padding:30px 15px}.card{max-width:480px;margin:50px auto;background:white;border-radius:15px;padding:30px;box-shadow:0 5px 24px #16345520}h1{font-size:24px}label{display:block;margin:15px 0 6px;font-weight:600}input,button{width:100%;box-sizing:border-box;padding:13px;font-size:16px;border-radius:8px}input{border:1px solid #a7b8cc}button{background:#09579f;border:0;color:white;font-weight:700;margin-top:20px;cursor:pointer}button:disabled{opacity:.55}#status{margin-top:18px;line-height:1.5}.hint{font-size:13px;color:#52677c}</style></head><body><main class="card"><h1>MultSeg — Redefinir senha</h1><p>Defina uma nova senha para sua conta do Gestão Comercial.</p><form id="form" hidden><label for="pass">Nova senha</label><input id="pass" type="password" minlength="12" autocomplete="new-password" required><label for="confirm">Confirme a nova senha</label><input id="confirm" type="password" minlength="12" autocomplete="new-password" required><button id="save">Salvar nova senha</button></form><p id="status" role="status">Verificando o link de recuperação…</p><p class="hint">Nunca compartilhe sua senha. Se o link tiver expirado, solicite um novo e-mail no Supabase.</p></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script><script>
+const SUPABASE_URL='https://kfewizjrizskabnzkozb.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_olijYXYtsi5cWKqsDPRp6A_UBQ6dIIO';
+const statusEl=document.getElementById('status'),form=document.getElementById('form');
+const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{detectSessionInUrl:true,persistSession:false,autoRefreshToken:false}});
+let recoveryReady=false;
+function show(s){statusEl.textContent=s;}
+async function initialize(){try{
+ const url=new URL(location.href);const params=new URLSearchParams(location.hash.slice(1));
+ const error=params.get('error_description')||url.searchParams.get('error_description');if(error){show('Link inválido ou expirado: '+error);return;}
+ const tokenHash=url.searchParams.get('token_hash');const type=url.searchParams.get('type');
+ if(tokenHash&&type==='recovery'){const {error:e}=await client.auth.verifyOtp({token_hash:tokenHash,type:'recovery'});if(e)throw e;}
+ else if(params.get('access_token')&&params.get('refresh_token')){const {error:e}=await client.auth.setSession({access_token:params.get('access_token'),refresh_token:params.get('refresh_token')});if(e)throw e;}
+ else {show('Abra esta página pelo link de recuperação enviado ao seu e-mail.');return;}
+ const {data:{user},error:e}=await client.auth.getUser();if(e||!user)throw e||new Error('Sessão de recuperação não encontrada');
+ recoveryReady=true;form.hidden=false;show('Link confirmado. Escolha uma senha nova com pelo menos 12 caracteres.');
+ history.replaceState(null,'',location.pathname);
+ }catch(e){show('Não foi possível validar o link: '+(e?.message||'erro desconhecido')+'. Solicite um novo e-mail de recuperação.');}}
+form.addEventListener('submit',async ev=>{ev.preventDefault();if(!recoveryReady)return;const p=document.getElementById('pass').value;if(p!==document.getElementById('confirm').value){show('As senhas digitadas não coincidem.');return;}const b=document.getElementById('save');b.disabled=true;show('Salvando nova senha…');try{const {error}=await client.auth.updateUser({password:p});if(error)throw error;form.hidden=true;show('Senha alterada! Volte ao aplicativo MultSeg e faça login com sua nova senha.');await client.auth.signOut();}catch(e){show('Não foi possível alterar a senha: '+(e?.message||'erro desconhecido'));b.disabled=false;}});
+initialize();</script></body></html>
